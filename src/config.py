@@ -9,12 +9,11 @@ try:
 except ImportError:
     import configparser
 
-APP_NAME = 'JiraPubSync'
-
 
 class AppConfig:
     SK_SECTION = 'SK_JIRA'
     PUB_SECTION = 'PUB_JIRA'
+    APP_NAME = 'JiraPubSync'
 
     @classmethod
     def get_file_path(cls):
@@ -22,7 +21,7 @@ class AppConfig:
 
     @classmethod
     def get_dir_path(cls):
-        return click.get_app_dir(APP_NAME, False, False)
+        return click.get_app_dir(cls.APP_NAME, False, False)
 
     @classmethod
     def read(cls):
