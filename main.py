@@ -21,7 +21,6 @@ def main():
     started = IO.input_days_ago()
     started = pytz.timezone(pub_jira.timezone()).localize(started)
 
-    sync = Sync(pub_jira, sk_jira)
-    sync.sync(started)
+    Sync(pub_jira, sk_jira).sync(started)
 
 main()
