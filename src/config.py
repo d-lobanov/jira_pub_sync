@@ -11,6 +11,7 @@ except ImportError:
 
 APP_NAME = 'JiraPubSync'
 
+
 class AppConfig:
     SK_SECTION = 'SK_JIRA'
     PUB_SECTION = 'PUB_JIRA'
@@ -137,3 +138,6 @@ class Jira(jira.JIRA):
         :rtype: int
         """
         return int(sum(worklog.timeSpentSeconds for worklog in self.worklogs_by_date(issue, date)))
+
+    def timezone(self):
+        return self.user(self.current_user()).timeZone

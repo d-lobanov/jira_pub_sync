@@ -12,10 +12,7 @@ class IO:
         while num < 1:
             num = click.prompt('Please enter a number of days', type=int)
 
-        num -= 1
-        date = dt.today() - td(days=num)
-
-        return date.replace(hour=12, minute=0, second=0, microsecond=0, tzinfo=timezone.utc)
+        return dt.today() - td(days=num - 1)
 
     @classmethod
     def highlight_key(cls, url, color='cyan'):

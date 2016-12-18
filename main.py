@@ -2,6 +2,7 @@ from src import config
 from src.io import IO
 from src.synchronizer import Synchronizer as Sync
 import click
+import pytz
 
 try:
     import ConfigParser as configparser
@@ -14,10 +15,11 @@ def main():
         sk_jira = config.JiraFactory.get_sk()
         pub_jira = config.JiraFactory.get_pub()
     except (configparser.NoSectionError, configparser.NoOptionError):
-        click.echo('Please, edit config file')
+        click.echo('Please, edit config file %s' % click.format_filename(config.AppConfig.get_file_path()))
         return
 
     started = IO.input_days_ago()
+    started = pytz.timezone(pub_jira.timezone()).localize(started)
 
     sync = Sync(pub_jira, sk_jira)
     sync.sync(started)
