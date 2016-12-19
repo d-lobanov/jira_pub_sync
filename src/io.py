@@ -1,6 +1,7 @@
 from datetime import datetime as dt, timedelta as td, timezone
 import click
-from src.config import Issue
+from src.config import Issue, JiraConfig
+import re
 
 
 class IO:
@@ -13,6 +14,23 @@ class IO:
             num = click.prompt('Please enter a number of days', type=int)
 
         return dt.today() - td(days=num - 1)
+
+    @classmethod
+    def input_jira_credentials(cls, url=None, username=None, password=None):
+        url = click.prompt('Host url', value_proc=cls.url_validation, default=url)
+        username = click.prompt('Username', default=username, type=str)
+        password = click.prompt('Password' if password is None else 'Password [hidden]', hide_input=True, type=str,
+                                default=password, show_default=False)
+
+        return JiraConfig(url, username, password)
+
+    @classmethod
+    def url_validation(cls, url):
+        r = re.match("^https?:\/\/[\w\-\.]+\.[a-z]{2,6}\.?(\/[\w\.]*)*\/?$", url)
+        if r is None:
+            raise click.UsageError('Please, type valid URL')
+
+        return url
 
     @classmethod
     def highlight_key(cls, url, color='cyan'):

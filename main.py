@@ -12,8 +12,8 @@ except ImportError:
 
 def main():
     try:
-        sk_jira = config.JiraFactory.get_sk()
-        pub_jira = config.JiraFactory.get_pub()
+        sk_jira = config.JiraFactory.create_sk()
+        pub_jira = config.JiraFactory.create_pub()
     except (configparser.NoSectionError, configparser.NoOptionError):
         click.echo('Please, edit config file %s' % click.format_filename(config.AppConfig.get_file_path()))
         return

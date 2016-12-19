@@ -52,7 +52,7 @@ class AppConfig:
         cls.write(config)
 
     @classmethod
-    def get_jira_config(cls, section):
+    def read_jira_config(cls, section):
         config = cls.read()
 
         url = config.get(section, 'url')
@@ -71,16 +71,20 @@ class JiraConfig:
 
 class JiraFactory:
     @classmethod
-    def get_sk(cls):
-        config = AppConfig.get_jira_config(AppConfig.SK_SECTION)
-
+    def create(cls, config):
         return Jira(config.url, basic_auth=(config.username, config.password))
 
     @classmethod
-    def get_pub(cls):
-        config = AppConfig.get_jira_config(AppConfig.PUB_SECTION)
+    def create_sk(cls):
+        config = AppConfig.read_jira_config(AppConfig.SK_SECTION)
 
-        return Jira(config.url, basic_auth=(config.username, config.password))
+        return cls.create(config)
+
+    @classmethod
+    def create_pub(cls):
+        config = AppConfig.read_jira_config(AppConfig.PUB_SECTION)
+
+        return cls.create(config)
 
 
 class Issue(jira.Issue):

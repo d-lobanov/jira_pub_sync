@@ -51,7 +51,6 @@ class Synchronizer:
 
         for issue in sk_issues:
             self._sk_jira.add_worklog(issue, started=date, timeSpentSeconds=issue.time_diff)
-            # self._sk_jira.add_worklog(issue, started=date, timeSpentSeconds=15 * 60)
 
     def sk_issue(self, pub_issue):
         """Return sk issue by pub issue
