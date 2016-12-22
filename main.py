@@ -1,6 +1,8 @@
+from click.exceptions import Abort
+
 from src import config
 from src.io import IO
-from src.synchronizer import Synchronizer as Sync
+from src.time_synchronizer import TimeSynchronizer
 import click
 import pytz
 
@@ -19,8 +21,8 @@ def main():
         return
 
     started = IO.input_days_ago()
-    started = pytz.timezone(pub_jira.timezone()).localize(started)
 
-    Sync(pub_jira, sk_jira).sync(started)
+    TimeSynchronizer(pub_jira, sk_jira).do_from(started)
+
 
 main()

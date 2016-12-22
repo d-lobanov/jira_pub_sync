@@ -2,7 +2,7 @@ import jira
 import click
 import os
 import re
-from datetime import datetime as dt
+from datetime import datetime as dt, timezone as tz
 
 try:
     import ConfigParser as configparser
@@ -88,34 +88,48 @@ class JiraFactory:
 
 
 class Issue(jira.Issue):
+    """ Jira Issue """
+
+    def __init__(self, *args):
+        super().__init__(*args)
+
+        self.worklogs = []
+
     @classmethod
     def parse_key(cls, url):
         r = re.match('^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})\/(browse)\/(?P<key>\w+-\d+)$', url)
 
         return r.group('key') if r else None
 
+    @property
     def external_key(self):
-        url = self.external_url()
+        url = self.external_url
 
         return self.parse_key(url) if url else None
 
+    @property
     def external_url(self):
         return getattr(self.fields, 'customfield_10105')
 
-    def truncate_summary(self, limit=35):
-        """Get truncated summary without key
-
-        :rtype: str
-        """
-        summary = re.sub('^\w+-\d+:\s*', '', self.fields.summary)
-
-        return summary[:limit] + (summary[limit:] and '..')
+    @property
+    def spent_time(self):
+        return sum(int(worklog.timeSpentSeconds) for worklog in self.worklogs)
 
 
 class Jira(jira.JIRA):
-    def issues_by_worklog_date(self, days_ago):
+    def issues_by_worklog_date(self, date):
+        """
+        :type date: dt
+
+        :rtype: ReslutList
+        """
+
         result = []
-        issues = self.search_issues('worklogDate = startOfDay(-%dd) and worklogAuthor = currentUser()' % days_ago)
+
+        today = dt.today().replace(tzinfo=date.tzinfo)
+        days_ago = int((today - date).days)
+
+        issues = self.search_issues('worklogDate = startOfDay(-%dd) and worklogAuthor=currentUser()' % days_ago)
 
         for issue in issues:
             issue.__class__ = Issue
@@ -126,21 +140,31 @@ class Jira(jira.JIRA):
     def worklogs_by_date(self, issue, date):
         """Get worklogs and filter them by date
 
+        :type date: dt
+
         :rtype: list
         """
-        to_datetime = lambda jira_time: dt.strptime(jira_time, '%Y-%m-%dT%H:%M:%S.%f%z').replace(tzinfo=None)
-
         worklogs = [worklog for worklog in self.worklogs(issue) if
-                    to_datetime(worklog.started).date() == date.date()]
+                    self.jira_time_to_dt(worklog.started).date() == date.date()
+                    and worklog.author.name == self.current_user()]
 
         return worklogs
 
-    def timespend(self, issue, date):
-        """Get worklog time by date. Returns seconds
+    def remove_worklog(self, issue, worklog):
+        url = self._get_url('issue/{0}/worklog/{1}'.format(issue.id, worklog.id))
 
-        :rtype: int
-        """
-        return int(sum(worklog.timeSpentSeconds for worklog in self.worklogs_by_date(issue, date)))
+        self._session.delete(url)
+
+        return True
 
     def timezone(self):
+        """
+        Get current User timezone
+
+        :return:
+        """
         return self.user(self.current_user()).timeZone
+
+    @classmethod
+    def jira_time_to_dt(self, jira_time):
+        return dt.strptime(jira_time, '%Y-%m-%dT%H:%M:%S.%f%z').astimezone(tz.utc)

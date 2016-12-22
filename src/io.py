@@ -13,7 +13,9 @@ class IO:
         while num < 1:
             num = click.prompt('Please enter a number of days', type=int)
 
-        return dt.today() - td(days=num - 1)
+        date = dt.now(tz=timezone.utc) - td(days=num - 1)
+
+        return date.astimezone()
 
     @classmethod
     def input_jira_credentials(cls, url=None, username=None, password=None):
@@ -48,28 +50,53 @@ class IO:
         click.echo(date.strftime('%d %B %Y, %A'))
 
     @classmethod
-    def print_time_diff_line(cls, pub_issue, sk_link, time_diff):
+    def print_time_diff_line(cls, pub_issues, sk_issue, time_diff, status=None):
         hours = str(time_diff / 3600) + 'h'
 
-        status = 'error'
-        if time_diff == 0:
-            status = 'info'
-            hours = '0h'
-        elif time_diff > 0:
-            status = 'success'
+        if time_diff > 0:
             hours = '+' + hours
 
-        cls.print_line(pub_issue, sk_link, hours, status=status)
+        if status is None:
+            status = 'error'
+
+            if time_diff == 0:
+                status = 'info'
+            elif time_diff > 0:
+                status = 'success'
+
+        cls.print_line(pub_issues, sk_issue, hours, status=status)
 
     @classmethod
-    def print_line(cls, pub_issue, sk_link, message, status='info', color=None):
-        if not color:
-            color = cls.STATUS_COLOR.get(status, 'white')
+    def print_line(cls, pub_issues, sk_issue, message, status='info'):
+        pub_issues = pub_issues[:]
+        pub_issue = pub_issues.pop(0)
 
         pub_link = IO.highlight_key(pub_issue.permalink())
+
+        sk_link = sk_issue.permalink() if sk_issue is not None else None
         sk_link = IO.highlight_key(sk_link)
 
-        message = click.style(message, fg=color)
-        summary = pub_issue.truncate_summary()
+        color = cls.STATUS_COLOR.get(status, 'reset')
 
-        click.echo('%s => %s [ %s ] %s' % (pub_link, sk_link, message, summary))
+        message = click.style(message, fg=color)
+
+        if sk_issue is not None:
+            summary = cls.truncate_summary(sk_issue.fields.summary)
+        else:
+            summary = cls.truncate_summary(pub_issue.fields.summary)
+
+        click.echo('%s => %s [ %s ] %s' % (pub_link, sk_link, message, cls.truncate_summary(summary)))
+        
+        for pub_issue in pub_issues[1:]:
+            pub_link = IO.highlight_key(pub_issue.permalink())
+            click.echo(pub_link)
+
+    @classmethod
+    def truncate_summary(self, summary, limit=35):
+        """Get truncated summary without key
+
+        :rtype: str
+        """
+        summary = re.sub('^\w+-\d+:\s*', '', summary)
+
+        return summary[:limit] + (summary[limit:] and '..')
