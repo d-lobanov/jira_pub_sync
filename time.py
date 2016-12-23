@@ -1,10 +1,7 @@
-from click.exceptions import Abort
-
 from src import config
 from src.io import IO
 from src.time_synchronizer import TimeSynchronizer
 import click
-import pytz
 
 try:
     import ConfigParser as configparser

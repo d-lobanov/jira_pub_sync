@@ -90,6 +90,8 @@ class JiraFactory:
 class Issue(jira.Issue):
     """ Jira Issue """
 
+    EXTERNAL_ID_FIELD = 'customfield_10105'
+
     def __init__(self, *args):
         super().__init__(*args)
 
@@ -109,7 +111,7 @@ class Issue(jira.Issue):
 
     @property
     def external_url(self):
-        return getattr(self.fields, 'customfield_10105')
+        return getattr(self.fields, self.EXTERNAL_ID_FIELD)
 
     @property
     def spent_time(self):
