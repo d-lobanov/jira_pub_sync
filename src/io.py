@@ -22,7 +22,7 @@ class IO:
         while True:
             time = click.prompt(message, type=str)
 
-            r = re.match(r"^(\b(\d+[h|m])\b\s*)+$", time)
+            r = re.match(r"^(\b(\d+[whm])\b\s*)+$", time)
             if r is not None:
                 return time
 
@@ -135,4 +135,4 @@ class IO:
 
     @classmethod
     def error(cls, msg):
-        click.echo(click.style('ERROR: ', fg='green') + msg)
+        click.echo(click.style('ERROR: ', fg='red') + msg)

@@ -1,6 +1,7 @@
 from src import config
 from src.issue_synchronizer import IssueSync
 import click
+from src.decorators import except_abort, except_exception
 
 try:
     import ConfigParser as configparser
@@ -8,6 +9,8 @@ except ImportError:
     import configparser
 
 
+@except_abort
+@except_exception
 def main():
     try:
         sk_jira = config.JiraFactory.create_sk()

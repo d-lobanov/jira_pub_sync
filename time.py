@@ -2,6 +2,7 @@ from src import config
 from src.io import IO
 from src.time_synchronizer import TimeSynchronizer
 import click
+from src.decorators import except_abort, except_exception
 
 try:
     import ConfigParser as configparser
@@ -9,6 +10,8 @@ except ImportError:
     import configparser
 
 
+@except_abort
+@except_exception
 def main():
     try:
         sk_jira = config.JiraFactory.create_sk()
@@ -20,6 +23,5 @@ def main():
     started = IO.input_days_ago()
 
     TimeSynchronizer(pub_jira, sk_jira).do_from(started)
-
 
 main()

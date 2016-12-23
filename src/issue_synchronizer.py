@@ -28,8 +28,7 @@ class IssueSync(object):
         try:
             sk_issue = self._sk_jira.issue(sk_key)
         except Exception:
-            click.echo('Can\'t find the issue by key: %s' % sk_key)
-            return
+            raise Exception('Can\'t find the issue by key: %s' % sk_key)
 
         pub_issues = self._pub_jira.search_issues("'External issue ID' ~ '%s'" % sk_issue.permalink())
 
@@ -39,28 +38,21 @@ class IssueSync(object):
             for issue in pub_issues:
                 click.echo(io.highlight_key(issue=issue) + '\t' + issue.fields.summary)
 
-            if not click.confirm('Continue?', default=False):
+            if not click.confirm('\nContinue?', default=False):
                 return
 
-        click.echo('Starting migration of %s' % io.highlight_key(issue=sk_issue))
+        click.echo('Beginning of migration %s' % io.highlight_key(issue=sk_issue))
 
-        try:
-            pub_issue = self.create_pub_issue(sk_issue)
-        except Exception as e:
-            io.error(str(e))
+        pub_issue = self.create_pub_issue(sk_issue)
+        if pub_issue is None:
             return
 
         click.echo('Issue was migrated: %s' % io.highlight_key(issue=pub_issue))
+        click.echo('Beginning of migration attachments')
 
-        click.echo('Starting migration of attachments')
+        self.migrate_attachments(sk_issue, pub_issue)
 
-        try:
-            self.migrate_attachments(sk_issue, pub_issue)
-        except Exception as e:
-            io.error(str(e))
-            return
-
-        io.success("Migrated")
+        return pub_issue
 
     def create_pub_issue(self, sk_issue):
         """
