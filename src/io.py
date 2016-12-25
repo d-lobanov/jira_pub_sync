@@ -175,11 +175,12 @@ class IO:
 
         while True:
             message = click.edit("\n".join(items) + '\n\n' + MARKER)
-
             if message is None:
                 raise Abort
 
             lines = message.split(MARKER, 1)[0].rstrip('\n').split('\n')
+            if lines == ['']:
+                raise Abort
 
             try:
                 return cls._get_unsync_issues(lines, issues)
