@@ -1,9 +1,9 @@
 from datetime import timedelta, timezone, datetime as dt
 
+import click
 from jira.exceptions import JIRAError
 
 import src.config as config
-import click
 from src.io import IO as io
 
 
@@ -38,16 +38,19 @@ class TimeSynchronizer(object):
         today = dt.today().replace(tzinfo=started.tzinfo)
 
         for date in date_range(started, today):
-            date = date.astimezone(tz=timezone.utc)
+            date = date.replace(hour=0, minute=0, second=0, microsecond=0)
 
             io.print_date_line(date)
 
-            pub_issues = self.pub_issues(date)
-            sk_issues = self.sk_issues(pub_issues.keys(), date)
+            started = date.astimezone(tz=timezone.utc)
+            finished = started + timedelta(days=1) - timedelta(seconds=1)
+
+            pub_issues, sk_issues = self.issues(started, finished)
 
             uncync_issues = self.unsync_sk_issues(pub_issues, sk_issues)
 
-            self.sync(uncync_issues, pub_issues)
+            if uncync_issues:
+                self.sync(uncync_issues, pub_issues)
 
     def unsync_sk_issues(self, pub_map, sk_issues):
         """
@@ -59,14 +62,15 @@ class TimeSynchronizer(object):
         :return:
         """
         unsync_sk_issues = {}
-        for sk_key, pub_issues in pub_map.items():
-            sk_issue = sk_issues[sk_key]
 
+        for sk_key, pub_issues in pub_map.items():
             pub_time = sum(pub_issue.spent_time for pub_issue in pub_issues)
 
-            if sk_issue is None:
-                io.print_time_diff_line(pub_issues, sk_issue, time_diff=pub_time, status="warning")
+            if sk_key is None:
+                io.print_time_diff_line(pub_issues, None, time_diff=pub_time, status="warning")
                 continue
+
+            sk_issue = sk_issues[sk_key]
 
             time_diff = pub_time - sk_issue.spent_time
 
@@ -86,12 +90,12 @@ class TimeSynchronizer(object):
         :param pub_map:
         :return:
         """
+        keys = [key for key in sk_issues.keys()]
+        if not click.confirm('Synchronize %s?' % str(keys), default=False):
+            return
+
         for sk_key, sk_issue in sk_issues.items():
             pub_issues = pub_map[sk_key]
-
-            keys = [pub_issue.key for pub_issue in pub_issues]
-            if not click.confirm('Synchronize %s?' % keys, default=False):
-                continue
 
             for worklog in sk_issue.worklogs:
                 self._sk_jira.remove_worklog(sk_issue, worklog)
@@ -104,12 +108,13 @@ class TimeSynchronizer(object):
                 self._sk_jira.add_worklog(sk_issue, timeSpentSeconds=worklog.timeSpentSeconds, started=started,
                                           comment=worklog.comment)
 
-    def sk_issues(self, sk_keys, worklog_date):
+    def sk_issues(self, sk_keys, started, finished):
         """
         Get SK issues by keys and adding worklog by date
 
         :param sk_keys: list
-        :param worklog_date: dt
+        :param started: dt
+        :param finished: dt
 
         :return:
         """
@@ -120,7 +125,7 @@ class TimeSynchronizer(object):
                 sk_issue = self._sk_jira.issue(sk_key)
                 sk_issue.__class__ = config.Issue
 
-                sk_issue.worklogs = self._sk_jira.worklogs_by_date(sk_issue, worklog_date)
+                sk_issue.worklogs = self._sk_jira.worklogs_by_dates(sk_issue, started, finished)
 
                 result[sk_key] = sk_issue
             except JIRAError:
@@ -128,20 +133,50 @@ class TimeSynchronizer(object):
 
         return result
 
-    def pub_issues(self, started):
+    def issues(self, started, finished):
         """
-        Return pub issues by date
+        Return PUB and SK issues by worklog between started and finished
 
         :rtype: dict
         """
-        result = {}
-        issues = self._pub_jira.issues_by_worklog_date(started)
+        pub_map, sk_map = {}, {}
 
-        for issue in issues:
-            issue.worklogs = self._pub_jira.worklogs_by_date(issue, started)
+        sk_issues = self._sk_jira.issues_by_worklog_date(started)
+        pub_issues = self._pub_jira.issues_by_worklog_date(started)
+
+        external_ids = [issue.external_url for issue in pub_issues]
+
+        additional_external_id = [sk_issue.permalink() for sk_issue in sk_issues if
+                                  sk_issue.permalink() not in external_ids]
+
+        pub_issues += self.pub_issue_by_sk_urls(additional_external_id)
+
+        for issue in pub_issues:
+            issue.__class__ = config.Issue
+            issue.worklogs = self._pub_jira.worklogs_by_dates(issue, started, finished)
 
             sk_key = issue.external_key
 
-            result[sk_key] = result.get(sk_key, []) + [issue]
+            pub_map[sk_key] = pub_map.get(sk_key, []) + [issue]
 
-        return result
+        sk_keys = [sk_issue.key for sk_issue in sk_issues]
+
+        addition_sk_keys = [key for key in pub_map.keys() if key is not None and key not in sk_keys]
+
+        sk_issues += [self._sk_jira.issue(key) for key in addition_sk_keys]
+
+        for issue in sk_issues:
+            issue.__class__ = config.Issue
+            issue.worklogs = self._sk_jira.worklogs_by_dates(issue, started, finished)
+
+            sk_map[issue.key] = issue
+
+        return pub_map, sk_map
+
+    def pub_issue_by_sk_urls(self, urls):
+        pub_issues = []
+
+        for url in urls:
+            pub_issues += self._pub_jira.search_issues("'External issue ID' ~ '%s'" % url)
+
+        return pub_issues

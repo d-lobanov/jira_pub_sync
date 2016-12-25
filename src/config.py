@@ -1,8 +1,10 @@
-import jira
-import click
+import json
 import os
 import re
 from datetime import datetime as dt, timezone as tz
+
+import click
+import jira
 
 try:
     import ConfigParser as configparser
@@ -13,6 +15,8 @@ except ImportError:
 class AppConfig:
     SK_SECTION = 'SK_JIRA'
     PUB_SECTION = 'PUB_JIRA'
+    COMMON_SECTION = 'COMMON'
+
     APP_NAME = 'JiraPubSync'
 
     @classmethod
@@ -52,6 +56,27 @@ class AppConfig:
         cls.write(config)
 
     @classmethod
+    def write_skipped_issues(cls, skipped_issues):
+        config = cls.read()
+        if not config.has_section(cls.COMMON_SECTION):
+            config.add_section(cls.COMMON_SECTION)
+
+        skipped_issues = set(skipped_issues)
+        config.set(cls.COMMON_SECTION, 'SKIPPED_ISSUES', json.dumps(skipped_issues))
+
+        cls.write(config)
+
+    @classmethod
+    def read_skipped_issues(cls):
+        config = cls.read()
+
+        issues = config.get(cls.COMMON_SECTION, 'SKIPPED_ISSUES')
+        if issues:
+            return json.loads(issues)
+
+        return []
+
+    @classmethod
     def read_jira_config(cls, section):
         config = cls.read()
 
@@ -72,7 +97,7 @@ class JiraConfig:
 class JiraFactory:
     @classmethod
     def create(cls, config):
-        return Jira(config.url, basic_auth=(config.username, config.password))
+        return Jira(config.url, basic_auth=(config.username, config.password), async=True)
 
     @classmethod
     def create_sk(cls):
@@ -119,27 +144,27 @@ class Issue(jira.Issue):
 
 
 class Jira(jira.JIRA):
-    def issues_by_worklog_date(self, date):
+    def issues_by_worklog_date(self, date, fields=None):
         """
         :type date: dt
+        :type fields: string
 
         :rtype: ReslutList
         """
 
-        result = []
-
         today = dt.today().replace(tzinfo=date.tzinfo)
+
         days_ago = int((today - date).days)
 
-        issues = self.search_issues('worklogDate = startOfDay(-%dd) and worklogAuthor=currentUser()' % days_ago)
+        issues = self.search_issues('worklogDate = startOfDay(-%dd) and worklogAuthor=currentUser()' % days_ago,
+                                    fields=fields)
 
         for issue in issues:
             issue.__class__ = Issue
-            result.append(issue)
 
         return issues
 
-    def worklogs_by_date(self, issue, date):
+    def worklogs_by_dates(self, issue, date_start, date_finish):
         """Get worklogs and filter them by date
 
         :type date: dt
@@ -147,7 +172,7 @@ class Jira(jira.JIRA):
         :rtype: list
         """
         worklogs = [worklog for worklog in self.worklogs(issue) if
-                    self.jira_time_to_dt(worklog.started).date() == date.date()
+                    date_start <= self.jira_time_to_dt(worklog.started) <= date_finish
                     and worklog.author.name == self.current_user()]
 
         return worklogs

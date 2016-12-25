@@ -11,7 +11,6 @@ except ImportError:
 
 
 @except_abort
-@except_exception
 def main():
     try:
         sk_jira = config.JiraFactory.create_sk()
