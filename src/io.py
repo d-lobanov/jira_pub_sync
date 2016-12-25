@@ -111,9 +111,12 @@ class IO:
 
         click.echo('%s => %s [ %s ] %s' % (pub_link, sk_link, message, cls.truncate_summary(summary)))
 
-        for pub_issue in pub_issues:
+        last_index = len(pub_issues) - 1
+        for n, pub_issue in enumerate(pub_issues):
             pub_link = IO.highlight_key(issue=pub_issue)
-            click.echo(pub_link)
+            postfix = ' /' if last_index == n else ' |'
+
+            click.echo(pub_link + postfix)
 
     @classmethod
     def truncate_summary(cls, summary, limit=35):
