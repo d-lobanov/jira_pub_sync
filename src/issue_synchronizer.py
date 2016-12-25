@@ -79,11 +79,14 @@ class IssueSync(object):
             click.echo('Nothing to do')
             return
 
-        hidden_keys = config.AppConfig.read_skipped_issues()
+        hidden_keys = config.AppConfig.read_hidden_keys()
 
         unsync_issues = [issue for issue in unsync_issues if issue.key not in hidden_keys]
 
         m_issues, s_issues, h_issues = io.edit_unsync_issues(unsync_issues)
+
+        h_keys = [h_issue.key for h_issue in h_issues]
+        config.AppConfig.write_hidden_keys(h_keys)
 
         for issue in m_issues:
             self.do(issue.key)

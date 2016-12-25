@@ -34,6 +34,11 @@ def jira_credential(url, section):
         return
 
 
+def clean_hidden_issues():
+    if click.confirm('Are you sure?'):
+        AppConfig.write_hidden_keys([], True)
+
+
 def main():
     click.echo('Jira-pub')
     jira_credential('https://jira-pub.itransition.com', AppConfig.PUB_SECTION)

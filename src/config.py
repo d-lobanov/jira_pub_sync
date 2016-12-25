@@ -15,7 +15,8 @@ except ImportError:
 class AppConfig:
     SK_SECTION = 'SK_JIRA'
     PUB_SECTION = 'PUB_JIRA'
-    COMMON_SECTION = 'COMMON'
+
+    HIDDEN_ISSUES = 'HIDDEN_ISSUES'
 
     APP_NAME = 'JiraPubSync'
 
@@ -56,23 +57,27 @@ class AppConfig:
         cls.write(config)
 
     @classmethod
-    def write_skipped_issues(cls, skipped_issues):
+    def write_hidden_keys(cls, hidden_keys, rewrite=False):
         config = cls.read()
-        if not config.has_section(cls.COMMON_SECTION):
-            config.add_section(cls.COMMON_SECTION)
+        if not config.has_section(cls.SK_SECTION):
+            config.add_section(cls.SK_SECTION)
+        elif not rewrite:
+            hidden_keys += cls.read_hidden_keys()
 
-        skipped_issues = set(skipped_issues)
-        config.set(cls.COMMON_SECTION, 'SKIPPED_ISSUES', json.dumps(skipped_issues))
+        hidden_keys = map(str, hidden_keys)
+        config.set(cls.SK_SECTION, cls.HIDDEN_ISSUES, ','.join((set(hidden_keys))))
 
         cls.write(config)
 
     @classmethod
-    def read_skipped_issues(cls):
+    def read_hidden_keys(cls):
         config = cls.read()
 
-        issues = config.get(cls.COMMON_SECTION, 'SKIPPED_ISSUES')
-        if issues:
-            return json.loads(issues)
+        if config.has_option(cls.SK_SECTION, cls.HIDDEN_ISSUES):
+            issues = config.get(cls.SK_SECTION, cls.HIDDEN_ISSUES)
+
+            if issues:
+                return issues.split(',')
 
         return []
 
