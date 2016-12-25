@@ -1,17 +1,26 @@
-from datetime import datetime as dt, timedelta as td, timezone
-import click
-from src.config import Issue, JiraConfig
 import re
+from datetime import datetime as dt, timedelta as td, timezone
+
+import click
 import jira
+from click.exceptions import Abort
+
+from src.config import Issue, JiraConfig
+
+
+class InputException(Exception):
+    def __init__(self, message):
+        self.message = message
+
 
 class IO:
     STATUS_COLOR = {'info': 'white', 'error': 'red', 'warning': 'yellow', 'success': 'green'}
 
     @classmethod
-    def input_days_ago(cls):
+    def input_days_ago(cls, default=None):
         num = 0
         while num < 1:
-            num = click.prompt('Please enter a number of days', type=int)
+            num = click.prompt('Please enter a number of days', type=int, default=default)
 
         date = dt.now(tz=timezone.utc) - td(days=num - 1)
 
@@ -102,19 +111,21 @@ class IO:
 
         click.echo('%s => %s [ %s ] %s' % (pub_link, sk_link, message, cls.truncate_summary(summary)))
 
-        for pub_issue in pub_issues[1:]:
+        for pub_issue in pub_issues:
             pub_link = IO.highlight_key(issue=pub_issue)
             click.echo(pub_link)
 
     @classmethod
-    def truncate_summary(self, summary, limit=35):
+    def truncate_summary(cls, summary, limit=35):
         """Get truncated summary without key
 
         :rtype: str
         """
-        summary = re.sub('^\w+-\d+:\s*', '', summary)
+        return cls.truncate_text(re.sub('^\w+-\d+:\s*', '', summary), limit)
 
-        return summary[:limit] + (summary[limit:] and '...')
+    @classmethod
+    def truncate_text(cls, text, limit=50):
+        return text[:limit] + (text[limit:] and '...')
 
     @classmethod
     def print_dict(cls, d, indent=0):
@@ -125,14 +136,74 @@ class IO:
                 cls.print_dict(value, indent + 1)
             else:
                 value = str(value).replace('\n', ' ').replace('\r', '')
-                value = value[:100] + (value[100:] and '...')
 
-                click.echo('\t' * indent + key + ': ' + value)
+                click.echo('\t' * indent + key + ': ' + cls.truncate_text(value, 100))
 
     @classmethod
     def success(cls, msg):
         click.echo(click.style(msg, fg='green'))
 
     @classmethod
-    def error(cls, msg):
+    def error(cls, msg, on_new_line=False):
+        if on_new_line:
+            click.echo()
+
         click.echo(click.style('ERROR: ', fg='red') + msg)
+
+    @classmethod
+    def edit_unsync_issues(cls, issues):
+        def line_format(flag, issue, max_summary):
+            summary = cls.truncate_text(issue.fields.summary, max_summary)
+            summary = summary.ljust(max_summary + 2)
+
+            return flag + '  ' + issue.key + '\t' + summary + '  ' + issue.permalink()
+
+        MARKER = """
+# Commands:
+# m = migrate issue.
+# s = skip issue for this time (also you can just remove the line).
+# h = hide issue (skip and not migrate in future).
+        """
+
+        max_summary = max([len(issue.fields.summary) for issue in issues])
+        max_summary = max_summary if max_summary < 200 else 200
+
+        items = [line_format('m', issue, max_summary) for issue in issues]
+
+        while True:
+            message = click.edit("\n".join(items) + '\n\n' + MARKER)
+
+            if message is None:
+                raise Abort
+
+            lines = message.split(MARKER, 1)[0].rstrip('\n').split('\n')
+
+            try:
+                return cls._get_unsync_issues(lines, issues)
+            except InputException as e:
+                cls.error(e.message, on_new_line=True)
+                click.pause()
+
+                continue
+
+    @classmethod
+    def _get_unsync_issues(cls, lines, issues):
+        result = {'m': [], 's': [], 'h': []}
+
+        for num, line in enumerate(lines):
+            r = re.match(r"(?P<mode>m|s|h)\s*(?P<key>\w+-\d+)\b.*", line)
+            if r is None:
+                raise InputException('Invalid line #%s' % str(num + 1))
+
+            key = r.group('key')
+            issue = next((issue for issue in issues if issue.key == key), None)
+
+            if issue is None:
+                raise InputException('Can\'t find issue by key % s' % key)
+
+            result[r.group('mode')].append(issue)
+            issues.remove(issue)
+
+        result['s'] += issues
+
+        return result['m'], result['s'], result['h']

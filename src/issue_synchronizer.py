@@ -1,7 +1,8 @@
-from datetime import timedelta, timezone, datetime as dt
+from datetime import datetime as dt
+
+import click
 
 import src.config as config
-import click
 from src.io import IO as io
 
 
@@ -53,6 +54,39 @@ class IssueSync(object):
         self.migrate_attachments(sk_issue, pub_issue)
 
         return pub_issue
+
+    def do_many(self, started):
+        """
+        Doing issues migration from started
+
+        :param started:
+        :return:
+        """
+        today = dt.today().replace(tzinfo=started.tzinfo)
+        days = int((today - started).days) + 1
+
+        sk_issues = self._sk_jira.search_issues('createdDate >= startOfDay(-%dd) and assignee=currentUser()' % days)
+        unsync_issues = []
+
+        for sk_issue in sk_issues:
+            pub_issues = self._pub_jira.search_issues("'External issue ID' ~ '%s'" % sk_issue.permalink())
+            if pub_issues:
+                continue
+
+            unsync_issues.append(sk_issue)
+
+        if not unsync_issues:
+            click.echo('Nothing to do')
+            return
+
+        hidden_keys = config.AppConfig.read_skipped_issues()
+
+        unsync_issues = [issue for issue in unsync_issues if issue.key not in hidden_keys]
+
+        m_issues, s_issues, h_issues = io.edit_unsync_issues(unsync_issues)
+
+        for issue in m_issues:
+            self.do(issue.key)
 
     def create_pub_issue(self, sk_issue):
         """
