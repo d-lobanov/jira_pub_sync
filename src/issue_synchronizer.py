@@ -146,7 +146,7 @@ class IssueSync(object):
             'issuetype': self.convert_issue_type(sk_issue.fields.issuetype),
             'summary': summary,
             'priority': self.convert_priority(sk_issue.fields.priority),
-            'description': sk_issue.fields.description,
+            'description': sk_issue.fields.description if sk_issue.fields.description else summary,
             'timetracking': {
                 'originalEstimate': estimate
             },
