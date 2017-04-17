@@ -130,23 +130,26 @@ class IO:
 
     @classmethod
     def edit_unsync_issues(cls, issues):
-        def line_format(flag, issue, max_summary):
-            summary = cls.truncate_text(issue.fields.summary, max_summary)
-            summary = summary.ljust(max_summary + 2)
-
-            return flag + '  ' + issue.key + '\t' + summary + '  ' + issue.permalink()
+        """
+        Allows a user to manage all new tasks. They can have three statuses: migrate, skip and hide.
+        """
 
         MARKER = """
 # Commands:
 # m = migrate issue.
 # s = skip issue for this time (also you can just remove the line).
-# h = hide issue (skip and not migrate in future).
+# h = hide issue (skip and never migrate).
         """
 
-        max_summary = max([len(issue.fields.summary) for issue in issues])
-        max_summary = max_summary if max_summary < 200 else 200
+        max_len = max([len(issue.fields.summary) for issue in issues])
+        max_len = max_len if max_len < 200 else 200
 
-        items = [line_format('m', issue, max_summary) for issue in issues]
+        def line_format(issue):
+            summary = cls.truncate_summary(issue.fields.summary, max_len).ljust(max_len + 2)
+
+            return 'm  ' + issue.key + '\t' + summary + '  ' + issue.permalink()
+
+        items = [line_format(issue) for issue in issues]
 
         while True:
             message = click.edit("\n".join(items) + '\n\n' + MARKER)
@@ -158,15 +161,18 @@ class IO:
                 raise Abort
 
             try:
-                return cls._get_unsync_issues(lines, issues)
+                return cls._read_unsync_issues(lines, issues)
             except InputException as e:
-                cls.error(e.message, on_new_line=True)
+                cls.error(e.message, nl=True)
                 click.pause()
 
                 continue
 
     @classmethod
-    def _get_unsync_issues(cls, lines, issues):
+    def _read_unsync_issues(cls, lines, issues):
+        """
+        Reads user input and parses status, key of new issues.
+        """
         result = {'m': [], 's': [], 'h': []}
 
         for num, line in enumerate(lines):

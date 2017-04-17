@@ -7,24 +7,13 @@ from src.io import IO as io
 
 
 class IssueSync(object):
-    def __init__(self, pub_jira, sk_jira):
-        """
-        :type pub_jira: config.Jira
-        :param pub_jira:
-
-        :type sk_jira: config.Jira
-        :param sk_jira:
-
-        """
-        self._pub_jira = pub_jira
+    def __init__(self, sk_jira, pub_jira):
         self._sk_jira = sk_jira
+        self._pub_jira = pub_jira
 
     def do(self, sk_key):
         """
-        Doing issue migration from SK jira to PUB by SK key
-
-        :param sk_key:
-        :return:
+        Migrates issues from SK to PUB.
         """
         try:
             sk_issue = self._sk_jira.issue(sk_key)
@@ -37,7 +26,7 @@ class IssueSync(object):
             click.echo('\nThis task has been already migrated to PUB: ')
 
             for issue in pub_issues:
-                click.echo(io.highlight_key(issue=issue) + '\t' + issue.fields.summary)
+                click.echo(io.highlight_key(issue=issue) + '\t' + io.truncate_summary(issue.fields.summary))
 
             if not click.confirm('\nContinue?', default=False):
                 return
@@ -46,9 +35,10 @@ class IssueSync(object):
 
         pub_issue = self.create_pub_issue(sk_issue)
         if pub_issue is None:
+            click.echo('Error has occurred')
             return
 
-        click.echo('Issue was migrated: %s' % io.highlight_key(issue=pub_issue))
+        click.echo('issue was migrated: %s' % io.highlight_key(issue=pub_issue))
         click.echo('Beginning of migration attachments')
 
         self.migrate_attachments(sk_issue, pub_issue)
@@ -57,7 +47,7 @@ class IssueSync(object):
 
     def do_many(self, started):
         """
-        Doing issues migration from started
+        Does issues migration from started date
 
         :param started:
         :return:
@@ -66,24 +56,24 @@ class IssueSync(object):
         days = int((today - started).days) + 1
 
         sk_issues = self._sk_jira.search_issues('createdDate >= startOfDay(-%dd) and assignee=currentUser()' % days)
-        unsync_issues = []
+        new_issues = []
 
         for sk_issue in sk_issues:
             pub_issues = self._pub_jira.search_issues("'External issue ID' ~ '%s'" % sk_issue.permalink())
             if pub_issues:
                 continue
 
-            unsync_issues.append(sk_issue)
+            new_issues.append(sk_issue)
 
-        if not unsync_issues:
+        if not new_issues:
             click.echo('Nothing to do')
             return
 
         hidden_keys = config.AppConfig.read_hidden_keys()
 
-        unsync_issues = [issue for issue in unsync_issues if issue.key not in hidden_keys]
+        new_issues = [issue for issue in new_issues if issue.key not in hidden_keys]
 
-        m_issues, s_issues, h_issues = io.edit_unsync_issues(unsync_issues)
+        m_issues, s_issues, h_issues = io.edit_unsync_issues(new_issues)
 
         h_keys = [h_issue.key for h_issue in h_issues]
         config.AppConfig.write_hidden_keys(h_keys)
@@ -128,8 +118,8 @@ class IssueSync(object):
         """
         click.echo()
 
-        summary = sk_issue.key + ': ' + sk_issue.fields.summary
-        summary = click.prompt('Summary', default=summary, type=str)
+        default_summary = sk_issue.key + ': ' + sk_issue.fields.summary
+        summary = click.prompt('Summary', default=default_summary, type=str)
 
         estimate = io.input_jira_estimate('Original Estimate')
 
@@ -151,13 +141,13 @@ class IssueSync(object):
                 'originalEstimate': estimate
             },
             'labels': labels,
-            config.Issue.EXTERNAL_ID_FIELD: sk_issue.permalink()
+            'customfield_10105': sk_issue.permalink()
         }
 
     @classmethod
     def convert_priority(cls, sk_priority):
         """
-        Convert SK Issue priority to PUB
+        Convert SK issue priority to PUB. You can find all of the by /rest/api/2/priority.
 
         :param sk_priority:
         :return:
@@ -194,7 +184,7 @@ class IssueSync(object):
     @classmethod
     def convert_issue_type(cls, sk_type):
         """
-        Convert SK Issue type to PUB
+        Convert SK issue type to PUB. You can find all types by /rest/api/2/issuetype.
 
         :param sk_type:
         :return:
