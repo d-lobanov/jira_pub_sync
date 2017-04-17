@@ -94,51 +94,6 @@ class IO:
         return ('+' if seconds > 0 else '') + hours + 'h'
 
     @classmethod
-    def print_time_diff_line(cls, pub_issues, sk_issue, time_diff, status=None):
-        hours = str(time_diff / 3600) + 'h'
-
-        if time_diff > 0:
-            hours = '+' + hours
-
-        if status is None:
-            status = 'error'
-
-            if time_diff == 0:
-                status = 'info'
-            elif time_diff > 0:
-                status = 'success'
-
-        cls.print_time_line(pub_issues, sk_issue, hours, status=status)
-
-    @classmethod
-    def print_time_line(cls, pub_issues, sk_issue, message, status='info'):
-        pub_issues = pub_issues[:]
-        pub_issue = pub_issues.pop(0)
-
-        pub_link = IO.highlight_key(issue=pub_issue)
-
-        sk_link = sk_issue.permalink() if sk_issue is not None else None
-        sk_link = IO.highlight_key(url=sk_link)
-
-        color = cls.STATUS_COLOR.get(status, 'reset')
-
-        message = click.style(message, fg=color)
-
-        if sk_issue is not None:
-            summary = cls.truncate_summary(sk_issue.fields.summary)
-        else:
-            summary = cls.truncate_summary(pub_issue.fields.summary)
-
-        click.echo('%s => %s [ %s ] %s' % (pub_link, sk_link, message, cls.truncate_summary(summary)))
-
-        last_index = len(pub_issues) - 1
-        for n, pub_issue in enumerate(pub_issues):
-            pub_link = IO.highlight_key(issue=pub_issue)
-            postfix = ' /' if last_index == n else ' |'
-
-            click.echo(pub_link + postfix)
-
-    @classmethod
     def truncate_summary(cls, summary, limit=35):
         """Get truncated summary without key
 
@@ -167,8 +122,8 @@ class IO:
         click.echo(click.style(msg, fg='green'))
 
     @classmethod
-    def error(cls, msg, on_new_line=False):
-        if on_new_line:
+    def error(cls, msg, nl=False):
+        if nl:
             click.echo()
 
         click.echo(click.style('ERROR: ', fg='red') + msg)
