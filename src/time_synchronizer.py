@@ -1,9 +1,9 @@
-from datetime import timedelta, timezone, datetime as dt
+from datetime import timedelta, datetime as dt
 
 import click
-from jira.exceptions import JIRAError
 
-import src.config as config
+from src.jira_container import IssuesCollection, PubIssuesCollection, WorklogsCollection
+from src.jira_helper import JiraHelper, PubHelper
 from src.io import IO as io
 
 
@@ -17,166 +17,130 @@ def date_range(start, end):
 class TimeSynchronizer(object):
     def __init__(self, pub_jira, sk_jira):
         """
-        :type pub_jira: config.Jira
+        :type _pub_helper: JiraHelper
         :param pub_jira:
 
-        :type sk_jira: config.Jira
+        :type _sk_helper: JiraHelper
         :param sk_jira:
 
         """
         self._pub_jira = pub_jira
         self._sk_jira = sk_jira
 
-    def do_from(self, started):
+        self._pub_helper = PubHelper(pub_jira)
+        self._sk_helper = JiraHelper(sk_jira)
+
+    def do(self, date_start):
         """
         Find and sync differences between JIRAs
 
-        :type started: dt
-        :param started:
+        :type date_start: dt
+        :param date_start:
 
         """
-        today = dt.today().replace(tzinfo=started.tzinfo)
+        date_start = date_start.replace(hour=0, minute=0, second=0, microsecond=0)
+        date_finish = dt.today().replace(tzinfo=date_start.tzinfo, hour=23, minute=59, second=59)
 
-        for date in date_range(started, today):
-            date = date.replace(hour=0, minute=0, second=0, microsecond=0)
+        sk, pub = self._get_issues_collections(date_start, date_finish)
 
-            io.print_date_line(date)
+        for date in date_range(date_start, date_finish):
+            io.echo_date(date)
 
-            started = date.astimezone(tz=timezone.utc)
-            finished = started + timedelta(days=1) - timedelta(seconds=1)
+            sk_keys = sk.filter_by_worklog_date(date).keys
+            sk_keys += pub.filter_by_worklog_date(date).sk_keys
 
-            pub_issues, sk_issues = self.issues(started, finished)
+            sk_keys = list(set(sk_keys))
 
-            uncync_issues = self.unsync_sk_issues(pub_issues, sk_issues)
+            worklogs_diff = []
 
-            if uncync_issues:
-                self.sync(uncync_issues, pub_issues)
+            for sk_key in sk_keys:
+                sk_issue = sk.get(sk_key)
+                sk_worklogs = sk_issue.worklogs.filter_by_date(date) if sk_issue else WorklogsCollection()
 
-    def unsync_sk_issues(self, pub_map, sk_issues):
+                pub_collection = pub.filter_by_sk_key(sk_key).filter_by_worklog_date(date)
+
+                time_diff = pub_collection.total_worklogs_time(date) - sk_worklogs.total_time
+
+                if time_diff != 0 and sk_issue:
+                    worklogs_diff.append((sk_issue, pub_collection, date))
+
+                self._print_line(time_diff, sk_issue, pub_collection)
+
+            if worklogs_diff and self._confirm(worklogs_diff):
+                self._sync_time(worklogs_diff)
+
+    def _confirm(self, worklogs_diff):
+        return click.confirm('Do you want to synchronize tasks %s?' % [item[0].key for item in worklogs_diff])
+
+    def _print_line(self, time_diff, sk_issue=None, pub_collection=None):
         """
-        Get all SK issues with different time
-        Print each step
-
-        :param pub_map:
-        :param sk_issues:
-        :return:
+        Print time differences information.
         """
-        unsync_sk_issues = {}
+        pub_link = io.highlight_key(issue=pub_collection.first()) if pub_collection else None
+        sk_link = io.highlight_key(issue=sk_issue) if sk_issue else None
 
-        for sk_key, pub_issues in pub_map.items():
-            pub_time = sum(pub_issue.spent_time for pub_issue in pub_issues)
+        summary = sk_issue.summary if sk_issue else pub_collection.first().summary
 
-            if sk_key is None:
-                io.print_time_diff_line(pub_issues, None, time_diff=pub_time, status="warning")
-                continue
+        click.echo(
+            '%s => %s [ %s ] %s' % (pub_link, sk_link, io.highlight_time(time_diff), io.truncate_summary(summary)))
 
-            sk_issue = sk_issues[sk_key]
+        for issue in pub_collection.items[1:]:
+            click.echo('%s' % io.highlight_key(issue=issue))
 
-            time_diff = pub_time - sk_issue.spent_time
-
-            io.print_time_diff_line(pub_issues, sk_issue, time_diff)
-
-            if time_diff != 0:
-                unsync_sk_issues[sk_key] = sk_issue
-
-        return unsync_sk_issues
-
-    def sync(self, sk_issues, pub_map):
+    def _sync_time(self, items):
         """
-        Remove all worklog from SK issue and move PUB worklogs to SK
-        Ask user before doing
-
-        :param sk_issues:
-        :param pub_map:
-        :return:
+        :type issue: IssuesCollection
         """
-        keys = [key for key in sk_issues.keys()]
-        if not click.confirm('Synchronize %s?' % str(keys), default=False):
-            return
+        for issue, pub_collection, date in items:
+            self._sk_helper.remove_worklogs(issue.data, issue.worklogs.filter_by_date(date))
 
-        for sk_key, sk_issue in sk_issues.items():
-            pub_issues = pub_map[sk_key]
+            for pub_issue in pub_collection:
+                [self._sk_helper.add_worklog(issue.data, worklog) for worklog in
+                 pub_issue.worklogs.filter_by_date(date)]
 
-            for worklog in sk_issue.worklogs:
-                self._sk_jira.remove_worklog(sk_issue, worklog)
+            click.echo('Synchronized %s' % io.highlight_key(issue=issue))
 
-            worklogs = [worklog for issue in pub_issues for worklog in issue.worklogs]
-
-            for worklog in worklogs:
-                started = config.Jira.jira_time_to_dt(worklog.started)
-
-                self._sk_jira.add_worklog(sk_issue, timeSpentSeconds=worklog.timeSpentSeconds, started=started,
-                                          comment=worklog.comment)
-
-    def sk_issues(self, sk_keys, started, finished):
+    def _get_issues_collections(self, date_start, date_finish):
         """
-        Get SK issues by keys and adding worklog by date
-
-        :param sk_keys: list
-        :param started: dt
-        :param finished: dt
-
-        :return:
+        Returns two collection of Issues for both of JIRAs.
         """
-        result = {}
+        sk_issues = self._sk_helper.issues_by_worklog_date_range(date_start, date_finish)
+        pub_issues = self._pub_helper.issues_by_worklog_date_range(date_start, date_finish)
 
-        for sk_key in sk_keys:
-            try:
-                sk_issue = self._sk_jira.issue(sk_key)
-                sk_issue.__class__ = config.Issue
+        sk_collection = IssuesCollection(sk_issues)
+        pub_collection = PubIssuesCollection(pub_issues)
 
-                sk_issue.worklogs = self._sk_jira.worklogs_by_dates(sk_issue, started, finished)
+        sk_issues = self._sk_helper.issues(pub_collection.sk_keys)
+        pub_issues = self._pub_helper.get_issues_by_sk_links(sk_collection.links)
 
-                result[sk_key] = sk_issue
-            except JIRAError:
-                result[None] = None
+        sk_collection.merge(sk_issues)
+        pub_collection.merge(pub_issues)
 
-        return result
+        sk_collection = self._add_sk_worklogs(sk_collection, date_start, date_finish)
+        pub_collection = self._add_pub_worklogs(pub_collection, date_start, date_finish)
 
-    def issues(self, started, finished):
+        return sk_collection, pub_collection
+
+    def _add_sk_worklogs(self, collection, date_start, date_finish):
         """
-        Return PUB and SK issues by worklog between started and finished
-
-        :rtype: dict
+        Adds worklogs into SK collection and returns updated collection.
         """
-        pub_map, sk_map = {}, {}
+        for issue in collection:
+            worklogs = self._sk_helper.get_worklogs_by_date(issue.data, date_start, date_finish)
 
-        sk_issues = self._sk_jira.issues_by_worklog_date(started)
-        pub_issues = self._pub_jira.issues_by_worklog_date(started)
+            if worklogs:
+                issue.worklogs.merge(worklogs)
 
-        external_ids = [issue.external_url for issue in pub_issues]
+        return collection
 
-        additional_external_id = [sk_issue.permalink() for sk_issue in sk_issues if
-                                  sk_issue.permalink() not in external_ids]
+    def _add_pub_worklogs(self, collection, date_start, date_finish):
+        """
+        Adds worklogs into PUB collection and returns updated collection.
+        """
+        for issue in collection:
+            worklogs = self._pub_helper.get_worklogs_by_date(issue.data, date_start, date_finish)
 
-        pub_issues += self.pub_issue_by_sk_urls(additional_external_id)
+            if worklogs:
+                issue.worklogs.merge(worklogs)
 
-        for issue in pub_issues:
-            issue.__class__ = config.Issue
-            issue.worklogs = self._pub_jira.worklogs_by_dates(issue, started, finished)
-
-            sk_key = issue.external_key
-
-            pub_map[sk_key] = pub_map.get(sk_key, []) + [issue]
-
-        sk_keys = [sk_issue.key for sk_issue in sk_issues]
-
-        addition_sk_keys = [key for key in pub_map.keys() if key is not None and key not in sk_keys]
-
-        sk_issues += [self._sk_jira.issue(key) for key in addition_sk_keys]
-
-        for issue in sk_issues:
-            issue.__class__ = config.Issue
-            issue.worklogs = self._sk_jira.worklogs_by_dates(issue, started, finished)
-
-            sk_map[issue.key] = issue
-
-        return pub_map, sk_map
-
-    def pub_issue_by_sk_urls(self, urls):
-        pub_issues = []
-
-        for url in urls:
-            pub_issues += self._pub_jira.search_issues("'External issue ID' ~ '%s'" % url)
-
-        return pub_issues
+        return collection

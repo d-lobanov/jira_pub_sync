@@ -1,8 +1,9 @@
-from src import config
+from jira import JIRAError
 from src.io import IO
 from src.time_synchronizer import TimeSynchronizer
 import click
-from src.decorators import except_abort, except_exception
+from src.decorators import except_abort
+from src.jira_factory import SkFactory, PubFactory
 
 try:
     import ConfigParser as configparser
@@ -13,14 +14,18 @@ except ImportError:
 @except_abort
 def main():
     try:
-        sk_jira = config.JiraFactory.create_sk()
-        pub_jira = config.JiraFactory.create_pub()
+        sk_jira = SkFactory.create()
+        pub_jira = PubFactory.create()
     except (configparser.NoSectionError, configparser.NoOptionError):
-        click.echo('Please, edit config file %s' % click.format_filename(config.AppConfig.get_file_path()))
+        click.echo('Can\'t find valid configs. Please, check configs')
+        return
+    except JIRAError:
+        click.echo('Can\'t connect to JIRA. Please, check configs')
         return
 
-    started = IO.input_days_ago()
+    started = IO.input_days_ago(5)
 
-    TimeSynchronizer(pub_jira, sk_jira).do_from(started)
+    TimeSynchronizer(pub_jira, sk_jira).do(started)
+
 
 main()

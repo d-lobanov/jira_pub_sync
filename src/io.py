@@ -2,10 +2,8 @@ import re
 from datetime import datetime as dt, timedelta as td, timezone
 
 import click
-import jira
 from click.exceptions import Abort
-
-from src.config import Issue, JiraConfig
+from src.config import JiraConfig
 
 
 class InputException(Exception):
@@ -54,24 +52,46 @@ class IO:
 
     @classmethod
     def highlight_key(cls, url=None, issue=None, color='cyan'):
-        if isinstance(issue, jira.Issue):
+        if hasattr(issue, 'permalink'):
             url = issue.permalink()
 
             return url.replace(issue.key, click.style(issue.key, fg=color))
 
         if isinstance(url, str):
-            key = Issue.parse_key(url)
+            key = issue.parse_key_from_url(url)
 
             return url.replace(key, click.style(key, fg=color))
 
         return None
 
     @classmethod
-    def print_date_line(cls, date, on_nl=True):
-        if on_nl:
+    def highlight_time(cls, seconds):
+        hours = cls.seconds_to_hours(seconds)
+
+        if seconds > 0:
+            status = 'success'
+        elif seconds < 0:
+            status = 'error'
+        else:
+            status = 'reset'
+
+        color = cls.STATUS_COLOR.get(status)
+
+        return click.style(hours, fg=color)
+
+    @classmethod
+    def echo_date(cls, date, nl=True):
+        if nl:
             click.echo()
 
         click.echo(date.strftime('%d %B %Y, %A'))
+
+    @classmethod
+    def seconds_to_hours(cls, seconds):
+        hours = seconds / 3600
+        hours = ('%f' % hours).rstrip('0').rstrip('.')
+
+        return ('+' if seconds > 0 else '') + hours + 'h'
 
     @classmethod
     def print_time_diff_line(cls, pub_issues, sk_issue, time_diff, status=None):
