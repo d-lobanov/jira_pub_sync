@@ -1,5 +1,6 @@
 from src.io import IO
-from src.config import AppConfig, JiraFactory
+from src.config import AppConfig, JiraConfig
+from src.jira_factory import PubFactory, SkFactory, BaseFactory
 import click
 
 try:
@@ -8,30 +9,22 @@ except ImportError:
     import configparser
 
 
-def jira_credential(url, section):
-    credentials = (url, None, None)
-
-    try:
-        pub_old = AppConfig.read_jira_config(section)
-        credentials = (pub_old.url, pub_old.username, pub_old.password)
-    except (configparser.NoSectionError, configparser.NoOptionError):
-        pass
-
+def input_createntials(config):
     while True:
         try:
-            config = IO.input_jira_credentials(*credentials)
-            JiraFactory.create(config)
+            config = IO.input_jira_credentials(config.url, config.username, config.password)
+
+            BaseFactory.create_jira(config)
         except Exception:
             click.secho(click.style('Credentials are not valid', fg='red'))
             if click.confirm('Try again?', default=True):
-                credentials = (config.url, config.username, config.password)
                 continue
 
-            return
+            return None
 
         click.secho(click.style('Credentials are valid', fg='green'))
-        AppConfig.write_jira_config(section, config)
-        return
+
+        return config
 
 
 def clean_hidden_issues():
@@ -41,10 +34,16 @@ def clean_hidden_issues():
 
 def main():
     click.echo('Jira-pub')
-    jira_credential('https://jira-pub.itransition.com', AppConfig.PUB_SECTION)
+
+    pub_config = input_createntials(AppConfig.read_pub_config())
+    if pub_config:
+        AppConfig.write_pub_config(pub_config)
 
     click.echo('\nSK Jira')
-    jira_credential('https://sheknows.jira.com', AppConfig.SK_SECTION)
+
+    sk_config = input_createntials(AppConfig.read_sk_config())
+    if sk_config:
+        AppConfig.write_sk_config(sk_config)
 
 
 main()
