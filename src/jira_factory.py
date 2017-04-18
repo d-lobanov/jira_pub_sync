@@ -1,10 +1,5 @@
-import configparser
-
 import jira
-from click import Abort
-from jira import JIRAError
-
-from src.io import IO
+from src.decorators import except_exception
 from src.config import AppConfig
 
 
@@ -28,15 +23,6 @@ class SkFactory(BaseFactory):
 
 class JiraFactory():
     @classmethod
-    def createOrAbort(cls):
-        try:
-            sk_jira = SkFactory.create()
-            pub_jira = PubFactory.create()
-        except (configparser.NoSectionError, configparser.NoOptionError):
-            IO.error('Can\'t find valid configs. Please, check configs')
-            raise Abort()
-        except JIRAError:
-            IO.error('Can\'t connect to JIRA. Please, check configs')
-            raise Abort()
-
-        return sk_jira, pub_jira
+    @except_exception('Can\'t connect to JIRA. Please, check configs')
+    def create(cls):
+        return SkFactory.create(), PubFactory.create()

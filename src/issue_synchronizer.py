@@ -4,6 +4,8 @@ import click
 
 import src.config as config
 from src.io import IO as io
+from src.jira_container import PubIssue
+from src.jira_helper import PubHelper
 
 
 class IssueSync(object):
@@ -11,7 +13,9 @@ class IssueSync(object):
         self._sk_jira = sk_jira
         self._pub_jira = pub_jira
 
-    def do(self, sk_key):
+        self._pub_helper = PubHelper(pub_jira)
+
+    def migrate(self, sk_key):
         """
         Migrates issues from SK to PUB.
         """
@@ -45,7 +49,7 @@ class IssueSync(object):
 
         return pub_issue
 
-    def do_many(self, started):
+    def migrate_issues(self, started):
         """
         Does issues migration from started date
 
@@ -55,15 +59,15 @@ class IssueSync(object):
         today = dt.today().replace(tzinfo=started.tzinfo)
         days = int((today - started).days) + 1
 
-        sk_issues = self._sk_jira.search_issues('createdDate >= startOfDay(-%dd) and assignee=currentUser()' % days)
-        new_issues = []
+        sk_issues = self._sk_jira.search_issues(
+            'createdDate >= startOfDay(-%dd) and (assignee=currentUser() or worklogAuthor=currentUser())' % days,
+            maxResults=100000)
 
-        for sk_issue in sk_issues:
-            pub_issues = self._pub_jira.search_issues("'External issue ID' ~ '%s'" % sk_issue.permalink())
-            if pub_issues:
-                continue
+        pub_issues = self._pub_helper.get_issues_by_sk_links([sk_issue.permalink() for sk_issue in sk_issues])
 
-            new_issues.append(sk_issue)
+        exists_sk_links = [PubIssue(issue).sk_url for issue in pub_issues]
+
+        new_issues = [issue for issue in sk_issues if issue.permalink() not in exists_sk_links]
 
         if not new_issues:
             click.echo('Nothing to do')
@@ -79,7 +83,7 @@ class IssueSync(object):
         config.AppConfig.write_hidden_keys(h_keys)
 
         for issue in m_issues:
-            self.do(issue.key)
+            self.migrate(issue.key)
 
     def create_pub_issue(self, sk_issue):
         """

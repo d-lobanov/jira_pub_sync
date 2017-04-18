@@ -1,2 +1,2 @@
 # Jira Pub Sync
-Console tool. Helps to syncronize work logs between two JIRAs
+Console tool. Helps to syncronize issues and worklogs between two JIRAs

@@ -12,7 +12,19 @@ def jira_time_to_dt(jira_time):
     return dt.strptime(jira_time, '%Y-%m-%dT%H:%M:%S.%f%z')
 
 
+def chunks(l, n):
+    """Yield successive n-sized chunks from l."""
+    for i in range(0, len(l), n):
+        yield l[i:i + n]
+
+
+def unique(l):
+    return list(set(filter(None, l)))
+
+
 class JiraHelper(object):
+    MAX_RESULT = 100000
+
     def __init__(self, jira):
         """
         :type jira: jira.JIRA
@@ -63,6 +75,7 @@ class JiraHelper(object):
         :rtype: dict
         """
         try:
+            self.connection.async_do()
             return [worklog for worklog in self.connection.worklogs(issue) if
                     worklog.author.name == self._current_user and
                     date_start < jira_time_to_dt(worklog.started) < date_finish]
@@ -71,13 +84,18 @@ class JiraHelper(object):
             return None
 
     def issues(self, keys):
+        """
+        Get all issues by keys.
+
+        :param keys:
+        :return:
+        """
         issues = []
 
-        for sk_key in keys:
-            try:
-                issues.append(self.connection.issue(sk_key))
-            except jira.JIRAError:
-                pass
+        for chunk in chunks(unique(keys), 100):
+            jql = "key in ('" + "','".join(chunk) + "')"
+
+            issues += self.connection.search_issues(jql, maxResults=self.MAX_RESULT, validate_query=False)
 
         return issues
 
@@ -93,7 +111,9 @@ class PubHelper(JiraHelper):
         """
         pub_issues = []
 
-        for link in links:
-            pub_issues += self.connection.search_issues("'External issue ID' ~ '%s'" % link, maxResults=1000)
+        for chunk in chunks(unique(links), 40):
+            jql = "'External issue ID' ~ '" + "' OR 'External issue ID' ~ '".join(chunk) + "'"
+
+            pub_issues += self.connection.search_issues(jql, maxResults=self.MAX_RESULT, validate_query=False)
 
         return pub_issues

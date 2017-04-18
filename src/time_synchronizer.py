@@ -2,9 +2,9 @@ from datetime import timedelta, datetime as dt
 
 import click
 
+from src.io import IO as io
 from src.jira_container import IssuesCollection, PubIssuesCollection, WorklogsCollection
 from src.jira_helper import JiraHelper, PubHelper
-from src.io import IO as io
 
 
 def date_range(start, end):
@@ -15,7 +15,7 @@ def date_range(start, end):
 
 
 class TimeSynchronizer(object):
-    def __init__(self, pub_jira, sk_jira):
+    def __init__(self, sk_jira, pub_jira):
         """
         :type _pub_helper: JiraHelper
         :param pub_jira:
@@ -76,16 +76,21 @@ class TimeSynchronizer(object):
         """
         Print time differences information.
         """
-        pub_link = io.highlight_key(issue=pub_collection.first()) if pub_collection else None
-        sk_link = io.highlight_key(issue=sk_issue) if sk_issue else None
+        pub_issue = pub_collection.first() if pub_collection else None
+
+        pub_link = io.highlight_key(issue=pub_issue) if pub_issue else 'Not found'
+        sk_link = io.highlight_key(issue=sk_issue) if sk_issue else 'Not found'
 
         summary = sk_issue.summary if sk_issue else pub_collection.first().summary
 
-        click.echo(
-            '%s => %s [ %s ] %s' % (pub_link, sk_link, io.highlight_time(time_diff), io.truncate_summary(summary)))
+        hours = io.highlight_time(time_diff, prefix='[ ', suffix=' ]', ljust=5)
 
-        for issue in pub_collection.items[1:]:
-            click.echo('%s' % io.highlight_key(issue=issue))
+        click.echo(
+            '%s -> %s\t%s %s' % (pub_link.rjust(54), sk_link.ljust(41), hours, io.truncate_summary(summary)))
+
+        if pub_collection:
+            for issue in pub_collection.items[1:]:
+                click.echo('%s' % io.highlight_key(issue=issue))
 
     def _sync_time(self, items):
         """
@@ -93,6 +98,9 @@ class TimeSynchronizer(object):
         """
         for issue, pub_collection, date in items:
             self._sk_helper.remove_worklogs(issue.data, issue.worklogs.filter_by_date(date))
+
+            if pub_collection is None:
+                continue
 
             for pub_issue in pub_collection:
                 [self._sk_helper.add_worklog(issue.data, worklog) for worklog in
@@ -104,6 +112,8 @@ class TimeSynchronizer(object):
         """
         Returns two collection of Issues for both of JIRAs.
         """
+        io.info('Getting issues...')
+
         sk_issues = self._sk_helper.issues_by_worklog_date_range(date_start, date_finish)
         pub_issues = self._pub_helper.issues_by_worklog_date_range(date_start, date_finish)
 
@@ -125,11 +135,12 @@ class TimeSynchronizer(object):
         """
         Adds worklogs into SK collection and returns updated collection.
         """
-        for issue in collection:
-            worklogs = self._sk_helper.get_worklogs_by_date(issue.data, date_start, date_finish)
+        with click.progressbar(collection, label='Getting SK worklogs ', length=len(collection.items)) as bar:
+            for issue in bar:
+                worklogs = self._sk_helper.get_worklogs_by_date(issue.data, date_start, date_finish)
 
-            if worklogs:
-                issue.worklogs.merge(worklogs)
+                if worklogs:
+                    issue.worklogs.merge(worklogs)
 
         return collection
 
@@ -137,10 +148,11 @@ class TimeSynchronizer(object):
         """
         Adds worklogs into PUB collection and returns updated collection.
         """
-        for issue in collection:
-            worklogs = self._pub_helper.get_worklogs_by_date(issue.data, date_start, date_finish)
+        with click.progressbar(collection, label='Getting PUB worklogs', length=len(collection.items)) as bar:
+            for issue in bar:
+                worklogs = self._pub_helper.get_worklogs_by_date(issue.data, date_start, date_finish)
 
-            if worklogs:
-                issue.worklogs.merge(worklogs)
+                if worklogs:
+                    issue.worklogs.merge(worklogs)
 
         return collection

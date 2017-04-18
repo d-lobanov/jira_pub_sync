@@ -3,6 +3,7 @@ from datetime import datetime as dt, timedelta as td, timezone
 
 import click
 from click.exceptions import Abort
+
 from src.config import JiraConfig
 
 
@@ -15,10 +16,10 @@ class IO:
     STATUS_COLOR = {'info': 'white', 'error': 'red', 'warning': 'yellow', 'success': 'green'}
 
     @classmethod
-    def input_days_ago(cls, default=None):
+    def input_days_ago(cls, default=None, limit=100):
         num = 0
-        while num < 1:
-            num = click.prompt('Please enter a number of days', type=int, default=default)
+        while not 1 < num < limit:
+            num = click.prompt('Number of days', type=int, default=default)
 
         date = dt.now(tz=timezone.utc) - td(days=num - 1)
 
@@ -65,7 +66,7 @@ class IO:
         return None
 
     @classmethod
-    def highlight_time(cls, seconds):
+    def highlight_time(cls, seconds, prefix='', suffix='', ljust=False):
         hours = cls.seconds_to_hours(seconds)
 
         if seconds > 0:
@@ -77,7 +78,10 @@ class IO:
 
         color = cls.STATUS_COLOR.get(status)
 
-        return click.style(hours, fg=color)
+        h_len = len(hours)
+        ljust = ljust - h_len if ljust and ljust > h_len else 0
+
+        return prefix + click.style(hours, fg=color) + suffix + (' ' * ljust)
 
     @classmethod
     def echo_date(cls, date, nl=True):
@@ -103,7 +107,7 @@ class IO:
 
     @classmethod
     def truncate_text(cls, text, limit=50):
-        return text[:limit] + (text[limit:] and '...')
+        return text[:limit].strip() + (text[limit:] and '...')
 
     @classmethod
     def print_dict(cls, d, indent=0):
@@ -118,15 +122,23 @@ class IO:
                 click.echo('\t' * indent + key + ': ' + cls.truncate_text(value, 100))
 
     @classmethod
-    def success(cls, msg):
-        click.echo(click.style(msg, fg='green'))
+    def success(cls, msg, nl=False):
+        cls.message(click.style(msg, fg='green'), nl)
 
     @classmethod
     def error(cls, msg, nl=False):
+        cls.message(click.style('ERROR: ', fg='red') + msg, nl)
+
+    @classmethod
+    def info(cls, msg, nl=False):
+        cls.message(msg, nl)
+
+    @classmethod
+    def message(cls, msg, nl=False):
         if nl:
             click.echo()
 
-        click.echo(click.style('ERROR: ', fg='red') + msg)
+        click.echo(msg)
 
     @classmethod
     def edit_unsync_issues(cls, issues):

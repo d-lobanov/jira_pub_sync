@@ -143,7 +143,7 @@ class IssuesCollection(object):
         if key is None:
             return None
 
-        return next(issue for issue in self._issues if issue.key == key)
+        return next((issue for issue in self._issues if issue.key == key), None)
 
     def _add(self, issue):
         issue = issue if isinstance(issue, self._item_class) else self._item_class(issue)
