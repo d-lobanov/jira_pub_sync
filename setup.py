@@ -1,9 +1,10 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name='jira-pub-sync',
     version='1.0',
-    packages=['src'],
+    packages=find_packages(),
+    py_modules=['pub_sync'],
     include_package_data=True,
     install_requires=[
         'click', 'jira'
@@ -12,4 +13,7 @@ setup(
         [console_scripts]
         pub=pub_sync:cli
     ''',
+    author="Dmitry Lobanov",
+    author_email="dmitry.lobanow@gmail.com",
+    description="Tool for JIRAs synchronization.",
 )
