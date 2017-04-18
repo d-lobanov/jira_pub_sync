@@ -1,6 +1,7 @@
 import jira
-from src.decorators import except_exception
+
 from src.config import AppConfig
+from src.decorators import except_exception
 
 
 class BaseFactory(object):

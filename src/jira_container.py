@@ -1,6 +1,8 @@
-from src.jira_helper import jira_time_to_dt
-import jira
 import re
+
+import jira
+
+from src.jira_helper import jira_time_to_dt
 
 
 def parse_key_from_issue_url(url):

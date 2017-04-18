@@ -1,13 +1,11 @@
-from datetime import timedelta, datetime as dt, timezone
-
 import click
 
 from src import AppConfig
+from src import BaseFactory
 from src import IO
 from src import IssueSync
 from src import JiraFactory
 from src import TimeSynchronizer
-from src.jira_factory import BaseFactory
 
 
 def input_createntials(config):
