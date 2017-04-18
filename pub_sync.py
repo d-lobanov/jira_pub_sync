@@ -24,7 +24,12 @@ def input_createntials(config):
         return config
 
 
-@click.command()
+@click.group()
+def cli():
+    pass
+
+
+@cli.command()
 def config():
     """
     Change credentials of JIRAs.
@@ -45,7 +50,7 @@ def config():
         AppConfig.write_sk_config(sk_config)
 
 
-@click.command()
+@cli.command()
 @click.argument('issue_key', required=False, type=str)
 def issue(issue_key):
     """
@@ -59,7 +64,7 @@ def issue(issue_key):
     IssueSync(sk, pub).migrate(issue_key.strip())
 
 
-@click.command()
+@cli.command()
 def issues():
     """
     Migrate non-synchronized tickets from SK to PUB.
@@ -71,8 +76,7 @@ def issues():
     IssueSync(sk, pub).migrate_issues(started)
 
 
-@click.command()
-@click.argument('days_ago', required=False, type=int)
+@cli.command()
 def time():
     """
     Time synchronization between JIRAs.
@@ -83,16 +87,6 @@ def time():
 
     TimeSynchronizer(sk, pub).do(started)
 
-
-@click.group()
-def cli():
-    pass
-
-
-cli.add_command(config)
-cli.add_command(issue)
-cli.add_command(issues)
-cli.add_command(time)
 
 if __name__ == '__main__':
     cli()
