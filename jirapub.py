@@ -113,3 +113,6 @@ def time(days_ago):
         started = IO.input_days_ago(default=5, limit=100)
 
     TimeSynchronizer(sk, pub).do(started)
+
+if __name__ == '__main__':
+    cli()

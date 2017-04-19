@@ -4,14 +4,14 @@ setup(
     name='jira-pub-sync',
     version='1.0',
     packages=find_packages(),
-    py_modules=['jira_pub_sync'],
+    py_modules=['jirapub'],
     include_package_data=True,
     install_requires=[
         'click', 'jira'
     ],
     entry_points='''
         [console_scripts]
-        jirapub=jira_pub_sync:cli
+        jirapub=jirapub:cli
     ''',
     author="Dmitry Lobanov",
     author_email="dmitry.lobanow@gmail.com",
