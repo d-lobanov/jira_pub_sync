@@ -10,7 +10,7 @@ class BaseFactory(object):
         if not config.valid():
             raise Exception
 
-        return jira.JIRA(config.url, basic_auth=(config.username, config.password), validate=True)
+        return jira.JIRA(config.url, basic_auth=(config.username, config.password), validate=True, max_retries=0)
 
 
 class PubFactory(BaseFactory):
