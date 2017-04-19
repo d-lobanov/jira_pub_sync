@@ -42,8 +42,7 @@ class IssueSync(object):
             click.echo('Error has occurred')
             return
 
-        click.echo('issue was migrated: %s' % io.highlight_key(issue=pub_issue))
-        click.echo('Beginning of migration attachments')
+        click.echo('Issue was migrated: %s' % io.highlight_key(issue=pub_issue))
 
         self.migrate_attachments(sk_issue, pub_issue)
 
@@ -110,6 +109,9 @@ class IssueSync(object):
         :param pub_issue:
         :return:
         """
+        if sk_issue.fields.attachment:
+            click.echo('Beginning of migration attachments')
+
         for attachment in sk_issue.fields.attachment:
             self._pub_jira.add_attachment(pub_issue, attachment.get(), filename=attachment.filename)
 
