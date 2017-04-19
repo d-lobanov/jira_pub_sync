@@ -54,8 +54,13 @@ def config():
 @cli.command()
 @click.argument('issue_key', required=False, type=str)
 def issue(issue_key):
-    """
-    Migrate JIRA ticket from SK to PUB.
+    """Migrates JIRA ticket from SK to PUB.
+
+    Uses SK issue key as argument for migration.
+    Migrates type, description, status, attachments of task.
+    Also, adds label `auto_migration` for easy finding.
+
+    You can change title, estimate etc in the process.
     """
     sk, pub = JiraFactory.create()
 
@@ -68,8 +73,14 @@ def issue(issue_key):
 @cli.command()
 @click.argument('days_ago', required=False, type=int)
 def issues(days_ago):
-    """
-    Migrate non-synchronized tickets from SK to PUB.
+    """Migrate non-synchronized tickets from SK to PUB since from DAYS_AGO till NOW
+    \b
+
+    Finds non-synchronized tickets by using worklogs and assigned tasks in SK for current user.
+    Provides git-like interface to choose which tickets have to be migrated.
+    After that, it uses `issue` command for each of a task.
+
+    Can synchronize maximum 1000 days.
     """
     sk, pub = JiraFactory.create()
 
@@ -84,8 +95,15 @@ def issues(days_ago):
 @cli.command()
 @click.argument('days_ago', required=False, type=int)
 def time(days_ago):
-    """
-    Time synchronization between JIRAs.
+    """Time synchronization between JIRAs from DAYS_AGO till NOW
+
+    Finds existing worklogs in SK and PUB JIRA.
+    Compares them by using `External ID`.
+    Migrates all worklogs from PUB to SK if time differences exists.
+    Uses PUB as a primary source.
+    Migrates comments for worklogs as well.
+
+    Can synchronize maximum 100 days.
     """
     sk, pub = JiraFactory.create()
 

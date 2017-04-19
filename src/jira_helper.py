@@ -103,7 +103,7 @@ class JiraHelper(object):
 class PubHelper(JiraHelper):
     def get_issues_by_sk_links(self, links):
         """
-        Searches pub issues by sk links using External ID.
+        Finds issues by sk links.
 
         :type links: list
 

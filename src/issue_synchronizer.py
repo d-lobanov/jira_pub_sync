@@ -17,7 +17,7 @@ class IssueSync(object):
 
     def migrate(self, sk_key):
         """
-        Migrates issues from SK to PUB.
+        Migrates issue from SK to PUB.
         """
         try:
             sk_issue = self._sk_jira.issue(sk_key)
@@ -51,7 +51,7 @@ class IssueSync(object):
 
     def migrate_issues(self, started):
         """
-        Does issues migration from started date
+        Migrates issues from SK to PUB.
 
         :param started:
         :return:
