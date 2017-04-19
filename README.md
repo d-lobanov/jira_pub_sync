@@ -15,4 +15,4 @@ jirapub time 10       # Start to migrate worklogs for last 10 days
 
 jirapub issue TASK-3  # Start to migrate issue `TASK-3` from SK to PUB
 
-jirapub issues 10     # Finds and migartes all non-synchronized tickets
+jirapub issues 18     # Finds and migartes all non-synchronized tickets for last 18 days
