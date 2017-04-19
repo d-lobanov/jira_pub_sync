@@ -6,6 +6,7 @@ from src import IO
 from src import IssueSync
 from src import JiraFactory
 from src import TimeSynchronizer
+from src import day_ago_to_datetime
 
 
 def input_createntials(config):
@@ -65,28 +66,32 @@ def issue(issue_key):
 
 
 @cli.command()
-def issues():
+@click.argument('days_ago', required=False, type=int)
+def issues(days_ago):
     """
     Migrate non-synchronized tickets from SK to PUB.
     """
     sk, pub = JiraFactory.create()
 
-    started = IO.input_days_ago(default=14, limit=1000)
+    if days_ago and 1 < days_ago < 1000:
+        started = day_ago_to_datetime(days_ago)
+    else:
+        started = IO.input_days_ago(default=14, limit=1000)
 
     IssueSync(sk, pub).migrate_issues(started)
 
 
 @cli.command()
-def time():
+@click.argument('days_ago', required=False, type=int)
+def time(days_ago):
     """
     Time synchronization between JIRAs.
     """
     sk, pub = JiraFactory.create()
 
-    started = IO.input_days_ago(default=5, limit=100)
+    if days_ago and 1 < days_ago < 100:
+        started = day_ago_to_datetime(days_ago)
+    else:
+        started = IO.input_days_ago(default=5, limit=100)
 
     TimeSynchronizer(sk, pub).do(started)
-
-
-if __name__ == '__main__':
-    cli()

@@ -7,6 +7,12 @@ from click.exceptions import Abort
 from src.config import JiraConfig
 
 
+def day_ago_to_datetime(num_of_days):
+    date = dt.now(tz=timezone.utc) - td(days=num_of_days - 1)
+
+    return date.astimezone()
+
+
 class InputException(Exception):
     def __init__(self, message):
         self.message = message
@@ -21,9 +27,7 @@ class IO:
         while not 1 < num < limit:
             num = click.prompt('Number of days', type=int, default=default)
 
-        date = dt.now(tz=timezone.utc) - td(days=num - 1)
-
-        return date.astimezone()
+        return day_ago_to_datetime(num)
 
     @classmethod
     def input_jira_estimate(cls, message):
