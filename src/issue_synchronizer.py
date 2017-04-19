@@ -22,7 +22,9 @@ class IssueSync(object):
         try:
             sk_issue = self._sk_jira.issue(sk_key)
         except Exception:
-            raise Exception('Can\'t find the issue by key: %s' % sk_key)
+            io.error('Can\'t find the issue by key: %s' % sk_key)
+
+            return
 
         pub_issues = self._pub_jira.search_issues("'External issue ID' ~ '%s'" % sk_issue.permalink())
 
