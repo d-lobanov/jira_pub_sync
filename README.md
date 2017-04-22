@@ -16,7 +16,7 @@ If python3 is not default in your system
 python3 -m pip install git+https://github.com/d-lobanov/jira_pub_sync
 ```
 
-For updating just add `--upgrade` in your installation pip command.
+For updating just add `--upgrade` in your installation command.
 
 # Usage
 ```sh
