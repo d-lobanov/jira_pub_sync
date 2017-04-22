@@ -111,7 +111,7 @@ def time(days_ago):
     """
     sk, pub = JiraFactory.create()
 
-    if days_ago and 1 < days_ago < 100:
+    if days_ago and 1 <= days_ago < 100:
         started = day_ago_to_datetime(days_ago)
     else:
         started = IO.input_days_ago(default=5, limit=100)

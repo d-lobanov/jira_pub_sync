@@ -44,7 +44,7 @@ class JiraHelper(object):
         """
 
         return self.connection.search_issues(
-            "worklogDate >= '%s' and worklogDate < '%s' and worklogAuthor=currentUser()" %
+            "worklogDate >= '%s' and worklogDate <= '%s' and worklogAuthor=currentUser()" %
             (date_start.strftime("%Y/%m/%d"), date_finish.strftime("%Y/%m/%d")))
 
     def remove_worklog(self, issue, worklog):
