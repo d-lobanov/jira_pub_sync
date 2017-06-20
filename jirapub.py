@@ -20,7 +20,9 @@ def input_createntials(config):
             BaseFactory.create_jira(config)
         except Exception:
             IO.error('Credentials not valid')
-            click.confirm('Try again?', default=True, abort=True)
+
+            if click.confirm('Try again?', default=True, abort=True):
+                continue
 
         return config
 

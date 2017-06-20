@@ -70,7 +70,8 @@ class TimeSynchronizer(object):
                 self._sync_time(worklogs_diff)
 
     def _confirm(self, worklogs_diff):
-        return click.confirm('Do you want to synchronize tasks %s?' % [item[0].key for item in worklogs_diff])
+        return click.confirm('Do you want to synchronize tasks %s?' % [item[0].key for item in worklogs_diff],
+                             default=True)
 
     def _print_line(self, time_diff, sk_issue=None, pub_collection=None):
         """
