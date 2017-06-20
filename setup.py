@@ -7,7 +7,7 @@ setup(
     py_modules=['jirapub'],
     include_package_data=True,
     install_requires=[
-        'click', 'jira'
+        'click', 'jira', 'oauthlib', 'pyparsing'
     ],
     entry_points='''
         [console_scripts]

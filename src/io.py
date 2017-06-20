@@ -24,7 +24,7 @@ class IO:
     @classmethod
     def input_days_ago(cls, default=None, limit=100):
         num = 0
-        while not 1 < num < limit:
+        while not 1 <= num < limit:
             num = click.prompt('Number of days', type=int, default=default)
 
         return day_ago_to_datetime(num)

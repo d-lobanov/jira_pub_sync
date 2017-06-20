@@ -7,7 +7,10 @@ from src.decorators import except_exception
 class BaseFactory(object):
     @classmethod
     def create_jira(cls, config):
-        return jira.JIRA(config.url, basic_auth=(config.username, config.password), async=True)
+        if not config.valid():
+            raise Exception
+
+        return jira.JIRA(config.url, basic_auth=(config.username, config.password), validate=True, max_retries=0)
 
 
 class PubFactory(BaseFactory):
@@ -24,6 +27,6 @@ class SkFactory(BaseFactory):
 
 class JiraFactory():
     @classmethod
-    @except_exception('Can\'t connect to JIRA. Please, check configs')
+    @except_exception('Can\'t connect to JIRA. Please, check configs by using `jirapub config` command')
     def create(cls):
         return SkFactory.create(), PubFactory.create()

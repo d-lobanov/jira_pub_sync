@@ -115,3 +115,6 @@ class JiraConfig:
         self.url = url
         self.username = username
         self.password = password
+
+    def valid(self):
+        return self.url and self.username and self.password
