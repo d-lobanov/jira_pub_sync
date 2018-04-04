@@ -138,7 +138,7 @@ class IssueSync(object):
 
         return {
             'project': {
-                'id': '10204',  # Sheknows DT project
+                'id': '41767',  # Sheknows DT project
                 'name': 'SheknowsDT'
             },
             'issuetype': self.convert_issue_type(sk_issue.fields.issuetype),
@@ -149,7 +149,7 @@ class IssueSync(object):
                 'originalEstimate': estimate
             },
             'labels': labels,
-            'customfield_10105': sk_issue.permalink()
+            'customfield_11470': sk_issue.permalink()
         }
 
     @classmethod
@@ -167,7 +167,7 @@ class IssueSync(object):
             },
             2: {  # Critical
                 'id': '2',
-                'name': 'High'
+                'name': 'Critical'
             },
             3: {  # Major
                 'id': '3',
@@ -199,11 +199,11 @@ class IssueSync(object):
         """
         map = {
             1: {  # Bug
-                'id': '10104',
+                'id': '1',
                 'name': 'Bug',
             },
             3: {  # Task
-                'id': '10100',
+                'id': '3',
                 'name': 'Task',
             },
         }

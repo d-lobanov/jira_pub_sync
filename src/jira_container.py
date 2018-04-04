@@ -71,7 +71,7 @@ class PubIssue(Issue):
 
     @property
     def sk_url(self):
-        return getattr(self.data.fields, 'customfield_10105')
+        return getattr(self.data.fields, 'customfield_11470')
 
 
 class Worklog(Decorator):
