@@ -101,6 +101,18 @@ class JiraHelper(object):
 
 
 class PubHelper(JiraHelper):
+    def issues_by_worklog_date_range(self, date_start, date_finish):
+        """
+        :type date_start: dt
+        :type date_finish: dt
+
+        :rtype: ReslutList
+        """
+
+        return self.connection.search_issues(
+            "worklogDate >= '%s' and worklogDate <= '%s' and worklogAuthor=currentUser()  and project = SheknowsDT" %
+            (date_start.strftime("%Y/%m/%d"), date_finish.strftime("%Y/%m/%d")))
+
     def get_issues_by_sk_links(self, links):
         """
         Finds issues by sk links.
